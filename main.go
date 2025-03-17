@@ -13,6 +13,11 @@ type Todo struct {
 	Body      string `json:"body"`
 }
 
+type UpdateTodo struct {
+	Completed bool   `json:"completed"`
+	Body      string `json:"body"`
+}
+
 func main() {
 	fmt.Println("Hello world")
 	app := fiber.New()
@@ -24,7 +29,7 @@ func main() {
 	})
 
 	// GET all todoItems
-	app.Get("/api/todos", func (c *fiber.Ctx) error {
+	app.Get("/api/todos", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{"items": todos})
 	})
 
@@ -47,17 +52,41 @@ func main() {
 	})
 
 	// UPDATE a todo
-	app.Patch("/api/todos/:id", func (c *fiber.Ctx) error {
+	app.Patch("/api/todos/:id", func(c *fiber.Ctx) error {
 		id := c.Params("id")
+
+		var updateReq UpdateTodo
+
+		if err := c.BodyParser(&updateReq); err != nil {
+			return c.Status(400).JSON(fiber.Map{"msg": "Invalid request body"})
+		}
 
 		for i, todo := range todos {
 			if fmt.Sprint(todo.Id) == id {
-				todos[i].Completed = true
+				todos[i].Completed = updateReq.Completed
+
+				if updateReq.Body != "" {
+					todos[i].Body = updateReq.Body
+				}
 				return c.Status(201).JSON(todos[i])
 			}
 		}
 
 		return c.Status(404).JSON(fiber.Map{"msg": "Todo not found"})
+	})
+
+	// DELETE a todo
+	app.Delete("/api/todos/:id", func (c *fiber.Ctx) error {
+		id := c.Params("id")
+
+		for i, todo := range todos {
+			if fmt.Sprint(todo.Id) == id {
+				todos = append(todos[:i], todos[i+1:]...)
+				return c.Status(200).JSON(fiber.Map{"success": true})
+			}
+		}
+
+		return c.Status(416).JSON(fiber.Map{"error": "Todo Item not found"})
 	})
 
 	log.Fatal(app.Listen(":4000"))
